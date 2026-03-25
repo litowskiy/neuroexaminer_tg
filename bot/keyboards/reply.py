@@ -3,8 +3,9 @@ from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemo
 # ── Topic selection ───────────────────────────────────────────────────────────
 choose_prof = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Python-разработчик")],
-        [KeyboardButton(text="Аналитик данных")],
+        [KeyboardButton(text="🐍 Python"), KeyboardButton(text="⚙️ C++")],
+        [KeyboardButton(text="🐹 Go"),     KeyboardButton(text="🗄️ SQL")],
+        [KeyboardButton(text="📊 Аналитика данных")],
     ],
     resize_keyboard=True,
 )

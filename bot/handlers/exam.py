@@ -3,19 +3,22 @@ Exam flow handlers.
 
 FSM exam_data stored in state has the shape:
 {
-    "fragments": list[dict],        # serialized Document objects (page_content + metadata)
-    "current_index": int,
-    "questions": list[str],         # generated question texts
-    "student_answers": list[str],
-    "correct_answers": list[str],   # only for test mode
-    "mode": "test" | "open",
-    "user_score": int,
-    "total_score": int,
-    "num_variants": int | None,     # test mode only
+    "fragments":        list[dict],   # serialized Document objects (page_content + metadata)
+                                      # OR list of {"topic": str, "subtopic": str} for no-doc mode
+    "current_index":    int,
+    "questions":        list[str],
+    "student_answers":  list[str],
+    "correct_answers":  list[str],    # only for test mode
+    "mode":             "test" | "open",
+    "no_doc":           bool,         # True when generating from GPT topic knowledge
+    "user_score":       int,
+    "total_score":      int,
+    "num_variants":     int | None,   # test mode only
 }
 """
 
 import asyncio
+import random
 from concurrent.futures import ThreadPoolExecutor
 
 from aiogram import Router, F
@@ -34,16 +37,37 @@ from bot.states import UserState
 from config import settings
 from services.answer_verifier import verify_open_answer, verify_test_answers
 from services.document_loader import load_document_text, split_markdown_into_topics
-from services.question_generator import generate_open_question, generate_test_question
+from services.question_generator import (
+    generate_open_question,
+    generate_test_question,
+    generate_open_question_no_doc,
+    generate_test_question_no_doc,
+    TOPIC_SUBTOPICS,
+)
 from utils.logger import get_user_logger
 
 router = Router()
 _executor = ThreadPoolExecutor()
 
-TOPICS = {
-    "Python-разработчик": settings.PYTHON_DEV_DOC_URL,
-    "Аналитик данных": settings.DATA_ANALYST_DOC_URL,
+# Темы с документом (URL) или без (None → GPT-only режим)
+TOPICS: dict[str, str | None] = {
+    "🐍 Python":              settings.PYTHON_DEV_DOC_URL or None,
+    "⚙️ C++":                None,
+    "🐹 Go":                  None,
+    "🗄️ SQL":                None,
+    "📊 Аналитика данных":   None,
 }
+
+# Внутренние названия тем для подбора подтем (без эмодзи)
+TOPIC_DISPLAY_NAMES: dict[str, str] = {
+    "🐍 Python":             "Python",
+    "⚙️ C++":               "C++",
+    "🐹 Go":                 "Go",
+    "🗄️ SQL":               "SQL",
+    "📊 Аналитика данных":  "Аналитика данных",
+}
+
+ALL_TOPIC_NAMES = list(TOPICS.keys())
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -57,10 +81,21 @@ async def _run_sync(fn, *args):
     return await loop.run_in_executor(_executor, fn, *args)
 
 
+def _make_no_doc_fragments(topic: str, num_questions: int) -> list[dict]:
+    """Pick random subtopics for the topic to use as question seeds."""
+    subtopics = TOPIC_SUBTOPICS.get(topic, [f"Основы {topic}"] * num_questions)
+    chosen = random.sample(subtopics, min(num_questions, len(subtopics)))
+    # If fewer subtopics than questions, repeat with shuffle
+    while len(chosen) < num_questions:
+        extra = random.sample(subtopics, min(num_questions - len(chosen), len(subtopics)))
+        chosen.extend(extra)
+    return [{"topic": topic, "subtopic": st} for st in chosen[:num_questions]]
+
+
 # ── Topic ─────────────────────────────────────────────────────────────────────
 
 @router.message(
-    F.text.in_(["Аналитик данных", "Python-разработчик"]),
+    F.text.in_(ALL_TOPIC_NAMES),
     UserState.choosing_topic,
 )
 async def choose_topic(message: Message, state: FSMContext) -> None:
@@ -135,28 +170,48 @@ async def _start_exam(message: Message, state: FSMContext) -> None:
     num_variants: int | None = data.get("num_variants")
 
     doc_url = TOPICS.get(topic)
+    mode = "test" if difficulty == "Тест (Легкий)" else "open"
+
+    # ── No-document mode (GPT topic knowledge) ──────────────────────────────
     if not doc_url:
-        await message.answer("Документ для этой темы не настроен. Обратитесь к администратору.")
+        display_name = TOPIC_DISPLAY_NAMES.get(topic, topic)
+        fragments = _make_no_doc_fragments(display_name, num_questions)
+        exam_data = {
+            "fragments": fragments,
+            "current_index": 0,
+            "questions": [],
+            "student_answers": [],
+            "correct_answers": [],
+            "mode": mode,
+            "no_doc": True,
+            "user_score": 0,
+            "total_score": num_questions if mode == "test" else 0,
+            "num_variants": num_variants,
+        }
+        await state.update_data(exam_data=exam_data)
+        await state.set_state(UserState.taking_exam)
+        await _ask_next_question(message, state)
         return
 
+    # ── Document mode ────────────────────────────────────────────────────────
     await message.answer("Загружаю материал, это может занять несколько секунд…")
-
     try:
         document_text = await _run_sync(load_document_text, doc_url)
-        fragments = await _run_sync(split_markdown_into_topics, document_text, num_questions)
+        fragments_docs = await _run_sync(split_markdown_into_topics, document_text, num_questions)
+        fragments = [_doc_to_dict(f) for f in fragments_docs]
     except Exception as e:
         logger.error(f"Ошибка загрузки документа: {e}")
         await message.answer("Не удалось загрузить материал. Попробуй позже.")
         return
 
-    mode = "test" if difficulty == "Тест (Легкий)" else "open"
     exam_data = {
-        "fragments": [_doc_to_dict(f) for f in fragments],
+        "fragments": fragments,
         "current_index": 0,
         "questions": [],
         "student_answers": [],
         "correct_answers": [],
         "mode": mode,
+        "no_doc": False,
         "user_score": 0,
         "total_score": num_questions if mode == "test" else 0,
         "num_variants": num_variants,
@@ -177,27 +232,44 @@ async def _ask_next_question(message: Message, state: FSMContext) -> None:
         await _grade_exam(message, state)
         return
 
-    fragment_dict = exam_data["fragments"][exam_data["current_index"]]
-
-    # Reconstruct a minimal Document-like object
-    class _Fragment:
-        def __init__(self, d):
-            self.page_content = d["page_content"]
-            self.metadata = d["metadata"]
-
-    fragment = _Fragment(fragment_dict)
+    fragment = exam_data["fragments"][exam_data["current_index"]]
+    no_doc: bool = exam_data.get("no_doc", False)
 
     await message.answer("Генерирую вопрос…")
     try:
-        if exam_data["mode"] == "test":
-            num_variants = exam_data["num_variants"]
-            question, correct_letter = await _run_sync(generate_test_question, fragment, num_variants)
-            exam_data["correct_answers"].append(correct_letter)
-            kb = create_answer_keyboard(num_variants)
-            await message.answer(question, reply_markup=kb)
+        if no_doc:
+            topic = fragment["topic"]
+            subtopic = fragment["subtopic"]
+            if exam_data["mode"] == "test":
+                num_variants = exam_data["num_variants"]
+                question, correct_letter = await _run_sync(
+                    generate_test_question_no_doc, topic, subtopic, num_variants
+                )
+                exam_data["correct_answers"].append(correct_letter)
+                kb = create_answer_keyboard(num_variants)
+                await message.answer(question, reply_markup=kb)
+            else:
+                question = await _run_sync(generate_open_question_no_doc, topic, subtopic)
+                await message.answer(question)
         else:
-            question = await _run_sync(generate_open_question, fragment)
-            await message.answer(question)
+            class _Fragment:
+                def __init__(self, d):
+                    self.page_content = d["page_content"]
+                    self.metadata = d["metadata"]
+
+            frag_obj = _Fragment(fragment)
+            if exam_data["mode"] == "test":
+                num_variants = exam_data["num_variants"]
+                question, correct_letter = await _run_sync(
+                    generate_test_question, frag_obj, num_variants
+                )
+                exam_data["correct_answers"].append(correct_letter)
+                kb = create_answer_keyboard(num_variants)
+                await message.answer(question, reply_markup=kb)
+            else:
+                question = await _run_sync(generate_open_question, frag_obj)
+                await message.answer(question)
+
     except Exception as e:
         logger.error(f"Ошибка генерации вопроса: {e}")
         await message.answer("Не удалось сгенерировать вопрос. Пропускаю...")
@@ -257,13 +329,19 @@ async def _grade_exam(message: Message, state: FSMContext) -> None:
         )
     else:
         await message.answer("Проверяю твои ответы, это займёт немного времени…")
-        for i, (fragment_dict, question, answer) in enumerate(
+        for i, (fragment, question, answer) in enumerate(
             zip(exam_data["fragments"], exam_data["questions"], exam_data["student_answers"]),
             start=1,
         ):
+            # Для no_doc режима передаём объединённый контекст
+            if exam_data.get("no_doc"):
+                context = f"Тема: {fragment['topic']}\nПодтема: {fragment['subtopic']}"
+            else:
+                context = fragment["page_content"]
+
             try:
                 grade, explanation = await _run_sync(
-                    verify_open_answer, fragment_dict["page_content"], question, answer
+                    verify_open_answer, context, question, answer
                 )
                 exam_data["total_score"] += int(grade)
             except Exception as e:

@@ -7,14 +7,13 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str
     OPENAI_API_KEY: str
 
-    # Google Docs URLs for each topic
+    # Google Docs URL for Python (optional — leave empty to use GPT-only mode)
     PYTHON_DEV_DOC_URL: str = (
         "https://docs.google.com/document/d/1A1U4ogKRkw9v6iqxDChM2O9A5-ucra8liEE3sT7nsQg/edit?usp=sharing"
     )
-    DATA_ANALYST_DOC_URL: str = ""
 
     # OpenAI model to use
-    OPENAI_MODEL: str = "gpt-3.5-turbo-1106"
+    OPENAI_MODEL: str = "gpt-4o-mini"
 
 
 settings = Settings()
