@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import settings
-from bot.handlers import start, exam
+from bot.handlers import start, exam, fallback
 
 
 logging.basicConfig(
@@ -20,6 +20,7 @@ async def main() -> None:
 
     dp.include_router(start.router)
     dp.include_router(exam.router)
+    dp.include_router(fallback.router)  # всегда последним!
 
     logging.info("Бот запущен.")
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

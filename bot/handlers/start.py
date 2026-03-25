@@ -65,18 +65,3 @@ async def show_topic_menu(message: Message, state: FSMContext) -> None:
     await state.set_state(UserState.choosing_topic)
 
 
-@router.message()
-async def fallback_handler(message: Message, state: FSMContext) -> None:
-    """Ловит любое сообщение которое не обработал ни один другой хэндлер.
-    Сбрасывает состояние и возвращает пользователя в главное меню."""
-    logger = get_user_logger(message.from_user.id)
-    current_state = await state.get_state()
-    logger.warning(
-        f"Пользователь {message.from_user.username} прислал необработанное сообщение "
-        f"'{message.text}' в состоянии {current_state}. Сброс."
-    )
-    await state.clear()
-    await message.answer(
-        "Что-то пошло не так или я не понял команду. Начнём сначала!",
-        reply_markup=nav_bar,
-    )
