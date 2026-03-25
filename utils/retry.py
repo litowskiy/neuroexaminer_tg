@@ -7,15 +7,26 @@ from tenacity import (
     wait_exponential,
     before_sleep_log,
 )
-from openai import APIConnectionError, APITimeoutError, RateLimitError, InternalServerError
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    RateLimitError,
+    InternalServerError,
+    PermissionDeniedError,
+    AuthenticationError,
+)
 
 logger = logging.getLogger(__name__)
 
 # Ошибки при которых имеет смысл повторять запрос:
-#   - APIConnectionError  → сеть/блокировка
+#   - APIConnectionError  → сеть/таймаут
 #   - APITimeoutError     → таймаут
 #   - RateLimitError      → превышен лимит (429)
 #   - InternalServerError → ошибка на стороне OpenAI (500/503)
+#
+# НЕ повторяем:
+#   - PermissionDeniedError → географическая блокировка (нужен прокси)
+#   - AuthenticationError   → неверный API ключ
 _RETRYABLE = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
 

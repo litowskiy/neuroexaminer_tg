@@ -16,8 +16,13 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
 
     # Прокси для OpenAI (нужен если сервер в РФ и OpenAI блокирует запросы)
-    # Пример: OPENAI_BASE_URL=https://api.proxysite.com/v1
+    # Вариант А — сменить эндпоинт (proxyapi.ru / openrouter.ai):
+    #   OPENAI_BASE_URL=https://api.proxyapi.ru/openai/v1
+    # Вариант Б — HTTP/SOCKS5 прокси:
+    #   OPENAI_PROXY=socks5://user:pass@host:port
+    #   OPENAI_PROXY=http://user:pass@host:port
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_PROXY: str = ""
 
 
 settings = Settings()

@@ -7,17 +7,13 @@ from config import settings
 from utils.retry import openai_retry
 
 
-class _CustomHTTPClient(httpx.Client):
-    def __init__(self, *args, **kwargs):
-        kwargs.pop("proxies", None)
-        super().__init__(*args, **kwargs)
-
-
 def _get_client() -> OpenAI:
+    proxy = settings.OPENAI_PROXY or None
+    http_client = httpx.Client(proxy=proxy) if proxy else httpx.Client()
     return OpenAI(
         api_key=settings.OPENAI_API_KEY,
         base_url=settings.OPENAI_BASE_URL,
-        http_client=_CustomHTTPClient(),
+        http_client=http_client,
     )
 
 
