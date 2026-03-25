@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import settings
-from bot.handlers import start, exam, fallback
+from bot.handlers import start, exam, fallback, materials
 
 
 logging.basicConfig(
@@ -19,6 +19,7 @@ async def main() -> None:
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.include_router(start.router)
+    dp.include_router(materials.router)  # до exam, чтобы кнопки навигации работали
     dp.include_router(exam.router)
     dp.include_router(fallback.router)  # всегда последним!
 

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(wc -l \"/Users/ilyaraspitin/Downloads/neuroexaminer_python_ipynb_\\(Производственная_практика\\) \\(1\\).ipynb\")"
+      "Bash(wc -l \"/Users/ilyaraspitin/Downloads/neuroexaminer_python_ipynb_\\(Производственная_практика\\) \\(1\\).ipynb\")",
+      "Bash(git add:*)"
     ]
   }
 }

@@ -178,8 +178,52 @@ async def _start_exam(message: Message, state: FSMContext) -> None:
     num_questions: int = data["num_questions"]
     num_variants: int | None = data.get("num_variants")
 
-    doc_url = TOPICS.get(topic)
     mode = "test" if difficulty == "Тест (Легкий)" else "open"
+
+    # ── Custom user material mode ────────────────────────────────────────────
+    custom_material_id = data.get("custom_material_id")
+    if custom_material_id:
+        from services.knowledge_base import get_material as _kb_get
+        material = _kb_get(message.from_user.id, custom_material_id)
+        if not material:
+            await message.answer(
+                "❌ Материал не найден. Вернись в базу знаний и попробуй снова."
+            )
+            return
+
+        material_name = data.get("custom_material_name", material["name"])
+        await message.answer(f"📖 Разбиваю материал «{material_name}» на фрагменты…")
+        try:
+            fragments_docs = await _run_sync(
+                split_markdown_into_topics, material["text"], num_questions
+            )
+            fragments = [_doc_to_dict(f) for f in fragments_docs]
+        except Exception as e:
+            logger.error(f"Ошибка разбивки пользовательского материала: {e}")
+            await message.answer(
+                "❌ Не удалось обработать материал. "
+                "Попробуй загрузить другой файл или сократи текст."
+            )
+            return
+
+        exam_data = {
+            "fragments": fragments,
+            "current_index": 0,
+            "questions": [],
+            "student_answers": [],
+            "correct_answers": [],
+            "mode": mode,
+            "no_doc": False,
+            "user_score": 0,
+            "total_score": num_questions if mode == "test" else 0,
+            "num_variants": num_variants,
+        }
+        await state.update_data(exam_data=exam_data)
+        await state.set_state(UserState.taking_exam)
+        await _ask_next_question(message, state)
+        return
+
+    doc_url = TOPICS.get(topic)
 
     # ── No-document mode (GPT topic knowledge) ──────────────────────────────
     if not doc_url:
