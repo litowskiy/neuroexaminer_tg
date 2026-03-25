@@ -4,6 +4,7 @@ import httpx
 from openai import OpenAI
 
 from config import settings
+from utils.retry import openai_retry
 
 
 class _CustomHTTPClient(httpx.Client):
@@ -20,6 +21,7 @@ def _get_client() -> OpenAI:
     )
 
 
+@openai_retry
 def verify_open_answer(fragment_text: str, question: str, answer: str) -> tuple[str, str]:
     """Grade an open-ended answer. Returns (grade: str, explanation: str)."""
     client = _get_client()

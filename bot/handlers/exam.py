@@ -244,7 +244,7 @@ async def _ask_next_question(message: Message, state: FSMContext) -> None:
     fragment = exam_data["fragments"][exam_data["current_index"]]
     no_doc: bool = exam_data.get("no_doc", False)
 
-    await message.answer("Генерирую вопрос…")
+    await message.answer("Генерирую вопрос… (может занять до 30 сек)")
     try:
         if no_doc:
             topic = fragment["topic"]

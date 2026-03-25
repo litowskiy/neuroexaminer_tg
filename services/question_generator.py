@@ -5,6 +5,7 @@ from openai import OpenAI
 from langchain.docstore.document import Document
 
 from config import settings
+from utils.retry import openai_retry
 
 
 # ── Subtopics for GPT-only topics (no document) ───────────────────────────────
@@ -99,6 +100,7 @@ def _get_client() -> OpenAI:
 
 # ── Document-based generators ─────────────────────────────────────────────────
 
+@openai_retry
 def generate_open_question(fragment: Document) -> str:
     """Generate a single open-ended question from a document fragment."""
     headers = fragment.metadata
@@ -155,6 +157,7 @@ def generate_open_question(fragment: Document) -> str:
     return question
 
 
+@openai_retry
 def generate_test_question(fragment: Document, num_choices: int) -> tuple[str, str]:
     """Generate a multiple-choice question. Returns (question_with_choices, correct_letter)."""
     system = f"""
@@ -213,6 +216,7 @@ def generate_test_question(fragment: Document, num_choices: int) -> tuple[str, s
 
 # ── Topic-only generators (no document) ───────────────────────────────────────
 
+@openai_retry
 def generate_open_question_no_doc(topic: str, subtopic: str) -> str:
     """Generate an open-ended question about a topic without a document."""
     system = """
@@ -245,6 +249,7 @@ def generate_open_question_no_doc(topic: str, subtopic: str) -> str:
     return response.choices[0].message.content.strip()
 
 
+@openai_retry
 def generate_test_question_no_doc(topic: str, subtopic: str, num_choices: int) -> tuple[str, str]:
     """Generate a multiple-choice question about a topic without a document."""
     system = f"""
