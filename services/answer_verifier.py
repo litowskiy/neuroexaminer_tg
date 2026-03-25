@@ -13,7 +13,11 @@ class _CustomHTTPClient(httpx.Client):
 
 
 def _get_client() -> OpenAI:
-    return OpenAI(api_key=settings.OPENAI_API_KEY, http_client=_CustomHTTPClient())
+    return OpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.OPENAI_BASE_URL,
+        http_client=_CustomHTTPClient(),
+    )
 
 
 def verify_open_answer(fragment_text: str, question: str, answer: str) -> tuple[str, str]:

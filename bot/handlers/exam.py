@@ -19,6 +19,7 @@ FSM exam_data stored in state has the shape:
 
 import asyncio
 import random
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 from aiogram import Router, F
@@ -279,8 +280,8 @@ async def _ask_next_question(message: Message, state: FSMContext) -> None:
                 await message.answer(question)
 
     except Exception as e:
-        logger.error(f"Ошибка генерации вопроса: {e}")
-        await message.answer("Не удалось сгенерировать вопрос. Пропускаю...")
+        logger.error(f"Ошибка генерации вопроса: {e}\n{traceback.format_exc()}")
+        await message.answer(f"Не удалось сгенерировать вопрос. Пропускаю...\n\n⚠️ {type(e).__name__}: {e}")
         question = "[ошибка генерации]"
         if exam_data["mode"] == "test":
             exam_data["correct_answers"].append("А")

@@ -15,5 +15,9 @@ class Settings(BaseSettings):
     # OpenAI model to use
     OPENAI_MODEL: str = "gpt-4o-mini"
 
+    # Прокси для OpenAI (нужен если сервер в РФ и OpenAI блокирует запросы)
+    # Пример: OPENAI_BASE_URL=https://api.proxysite.com/v1
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+
 
 settings = Settings()
