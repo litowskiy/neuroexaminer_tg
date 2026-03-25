@@ -16,7 +16,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     logger.info(f"Пользователь {message.from_user.username} начал взаимодействие с ботом.")
     await state.clear()
     text = (
-        "Привет! Я - бот, который поможет тебе в подготовке к экзаменам. "
+        "Привет! Я — бот, который поможет тебе в подготовке к экзаменам. "
         "Прямо во время экзамена я генерирую вопросы по выбранной тобой теме "
         "и проверяю их прямо как реальный преподаватель!"
     )
@@ -33,7 +33,7 @@ async def show_description(message: Message, state: FSMContext) -> None:
         "Этот бот поможет в подготовке!\n"
         "В зависимости от выбора уровня сложности тебе будут предложены вопросы "
         "с необходимостью написать ответ самому или с выбором ответа.\n"
-        "Каждый раз, когда ты запускаешь экзаменатор, бот в режиме реального времени создает вопросы. "
+        "Каждый раз, когда ты запускаешь экзаменатор, бот в режиме реального времени создаёт вопросы. "
         "После окончания экзамена он оценит их полноту и правильность прямо как настоящий преподаватель!\n\n"
         "Попробуй как это работает на уже доступных темах прямо сейчас!"
     )
@@ -51,7 +51,7 @@ async def show_help(message: Message, state: FSMContext) -> None:
         "2. Выбираешь сложность (Тесты или вопросы открытого типа)\n\n"
         "3. Выбираешь количество вариантов ответа, если ты выбрал тест, "
         "если нет — сразу переходишь к выбору количества вопросов\n\n"
-        "4. Запускаешь экзамен и буcтишь эффективность своей подготовки!"
+        "4. Запускаешь экзамен и бустишь эффективность своей подготовки!"
     )
     await message.answer(text, reply_markup=nav_bar)
     await state.set_state(UserState.choosing_topic)
@@ -63,3 +63,20 @@ async def show_topic_menu(message: Message, state: FSMContext) -> None:
     logger.info(f"Пользователь {message.from_user.username} открыл меню выбора темы.")
     await message.answer("Выбирай тему:", reply_markup=choose_prof)
     await state.set_state(UserState.choosing_topic)
+
+
+@router.message()
+async def fallback_handler(message: Message, state: FSMContext) -> None:
+    """Ловит любое сообщение которое не обработал ни один другой хэндлер.
+    Сбрасывает состояние и возвращает пользователя в главное меню."""
+    logger = get_user_logger(message.from_user.id)
+    current_state = await state.get_state()
+    logger.warning(
+        f"Пользователь {message.from_user.username} прислал необработанное сообщение "
+        f"'{message.text}' в состоянии {current_state}. Сброс."
+    )
+    await state.clear()
+    await message.answer(
+        "Что-то пошло не так или я не понял команду. Начнём сначала!",
+        reply_markup=nav_bar,
+    )

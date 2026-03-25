@@ -67,7 +67,13 @@ TOPIC_DISPLAY_NAMES: dict[str, str] = {
     "📊 Аналитика данных":  "Аналитика данных",
 }
 
-ALL_TOPIC_NAMES = list(TOPICS.keys())
+# Обратная совместимость — старые названия кнопок до переименования
+TOPIC_ALIASES: dict[str, str] = {
+    "Python-разработчик": "🐍 Python",
+    "Аналитик данных":    "📊 Аналитика данных",
+}
+
+ALL_TOPIC_NAMES = list(TOPICS.keys()) + list(TOPIC_ALIASES.keys())
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,8 +106,10 @@ def _make_no_doc_fragments(topic: str, num_questions: int) -> list[dict]:
 )
 async def choose_topic(message: Message, state: FSMContext) -> None:
     logger = get_user_logger(message.from_user.id)
-    logger.info(f"Пользователь {message.from_user.username} выбрал тему '{message.text}'.")
-    await state.update_data(topic=message.text)
+    # Нормализуем старые названия кнопок в новые
+    topic = TOPIC_ALIASES.get(message.text, message.text)
+    logger.info(f"Пользователь {message.from_user.username} выбрал тему '{topic}'.")
+    await state.update_data(topic=topic)
     await message.answer("Отлично! Теперь выбери сложность:", reply_markup=choose_lvl)
     await state.set_state(UserState.choosing_difficulty)
 
